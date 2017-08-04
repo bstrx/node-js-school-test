@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="ru">
+    <head>
+        <meta charset="UTF-8">
+        <title>NodeJs school test</title>
+        <link rel="stylesheet" type="text/css" href="index.css">
+        <script src="index.js"></script>
+    </head>
+    <body>
+        <div id="test-app">
+            <form id="myForm" action="" v-on:submit.prevent="onSubmit">
+                <label for="fio">ФИО:</label> <input id="fio" name="fio"><br>
+                <label for="email">Email:</label> <input id="email" name="email" type="email"><br>
+                <label for="phone">Телефон:</label> <input id="phone" name="phone" type="tel"><br>
+
+                <input id="submitButton" type="submit">
+            </form>
+            <div id="resultContainer"></div>
+        </div>
+    </body>
+</html>
