@@ -141,8 +141,13 @@ window.addEventListener('load', function () {
                 return false;
             }
 
-            return true;
-            //TODO
+            if (!phone.match(/^^\+7\([0-9]{3}\)[0-9]{3}-[0-9]{2}-[0-9]{2}$/)) {
+                return false;
+            }
+
+            let numbers = phone.replace(/\D+/g, '').split('');
+
+            return numbers.reduce((a, b) => parseInt(a) + parseInt(b), 0) <= 30;
 
         }
 
