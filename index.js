@@ -1,105 +1,149 @@
 window.addEventListener('load', function () {
+    /**
+     * @param mainContainerId
+     * @returns {{submit: submit, validate: validate, getData: getData, setData: setData}}
+     * @constructor
+     */
     function TestForm(mainContainerId) {
-        var formId = 'myForm';
-        var fioId = 'fio';
-        var emailId = 'email';
-        var phoneId = 'phone';
-        var submitButtonId = 'submitButton';
-        var resultContainerId = 'resultContainer';
-        var allInputsId = [fioId, emailId, phoneId];
+        const allowedDomains = ['ya.ru', 'yandex.ru', 'yandex.ua', 'yandex.by', 'yandex.kz', 'yandex.com'];
+        const fioId = 'fio';
+        const emailId = 'email';
+        const phoneId = 'phone';
+        const formSelector = '#' + mainContainerId + ' #myForm';
 
-        var mainContainer = document.getElementById('#' + mainContainerId);
-        var resultContainer = document.querySelector('#' + mainContainerId + ' #' + resultContainerId);
-        var formSelector = '#' + mainContainerId + ' #' + formId;
-        var form = document.querySelector(formSelector);
-        var fioInput = document.querySelector(formSelector + ' #' + fioId);
-        var emailInput = document.querySelector(formSelector + ' #' + emailId);
-        var phoneInput = document.querySelector(formSelector + ' #' + phoneId);
-        var submitButton = document.querySelector(formSelector + ' #' + submitButtonId);
+        const fillableFields = [fioId, emailId, phoneId];
+        const fieldsIdToValidator = {
+            [fioId]: validateFio,
+            [emailId]: validateEmail,
+            [phoneId]: validatePhone
+        };
 
-        var allowedDomains =['ya.ru', 'yandex.ru', 'yandex.ua', 'yandex.by', 'yandex.kz', 'yandex.com'];
-        form.addEventListener("submit", submit);
+        const form = document.querySelector(formSelector);
+        const resultContainer = document.querySelector('#' + mainContainerId + ' #resultContainer');
+        const submitButton = getFieldInputWithId('submitButton');
 
-        function validateFio() {
-            if (!fioInput.value) {
-                return false;
-            }
+        form.addEventListener("submit", submitEventHandler);
 
-            var words = fioInput.value.split(" ");
-            return words.length === 3;
-        }
-
-        function validateEmail() {
-            if (!emailInput.value) {
-                return false;
-            }
-
-            console.log(emailInput.value);
-            if (emailInput.value.match('/[.]+/')) { //TODO!! not working
-                return true;
-            }
-        }
-
-        function validatePhone() {
-            if (!phoneInput.value) {
-                return false;
-            }
-
-            //TODO
-
-        }
-
-        function setResultContainerData(data) {
-            resultContainer.innerText = data;
-        }
-
-        function getResultContainerData() {
-            return resultContainer.innerText;
-        }
-
-        function clearResultContainerData() {
-            resultContainer.innerText = '';
-        }
-
-        function submit(e) {
+        /**
+         * @param e
+         */
+        function submitEventHandler(e) {
             e.preventDefault();
+            submit();
+        }
 
-            var validationResult = validate();
+        /**
+         * @param fieldId
+         * @returns {Element}
+         */
+        function getFieldInputWithId(fieldId) {
+            return document.querySelector(formSelector + ' #' + fieldId)
+        }
+
+        /**
+         *
+         */
+        function submit() {
+            fillableFields.forEach(function (fieldId) {
+                getFieldInputWithId(fieldId).classList.remove("error");
+            });
+            let validationResult = validate();
+
             if (!validationResult.isValid) {
-                allInputsId.forEach(function (fieldId) {
-                    document.querySelector(formSelector + ' #' + fieldId).classList.remove("error");
-                });
-
                 validationResult.errorFields.forEach(function (fieldId) {
-                    var element = document.querySelector(formSelector + ' #' + fieldId);
-                    if (!element.classList.contains("error")) {
-                        element.classList.add("error");
-                    }
+                    getFieldInputWithId(fieldId).classList.add("error");
                 });
             } else {
-                //send ajax TODO
+                submitButton.disabled = true;
+                resultContainer.classList.remove();
+
+                let xhr = new XMLHttpRequest();
+                xhr.open('GET', 'responses/error.json', false); //TODO Make async, take link from action
+                xhr.send();
+                let response = JSON.parse(xhr.response);
+
+                switch (response.status) {
+                    case "success":
+                        resultContainer.innerText = "Success";
+                        resultContainer.classList.add("success");
+                        submitButton.disabled = false;
+                        break;
+                    case "error":
+                        resultContainer.innerText = response.reason;
+                        resultContainer.classList.add("error");
+                        submitButton.disabled = false;
+                        break;
+                    case "progress":
+                        resultContainer.innerText = '';
+                        resultContainer.classList.remove();
+                        setTimeout(submit, response.timeout);
+                        break;
+                }
             }
         }
 
+        /**
+         *
+         * @returns {{isValid: boolean, errorFields: Array}}
+         */
         function validate() {
-            var errorFields = [];
+            let errorFields = [];
 
-            if (!validateFio()) {
-                errorFields.push(fioId);
-            }
-
-            if (!validateEmail()) {
-                errorFields.push(emailId);
-            }
-
-            if (!validatePhone()) {
-                errorFields.push(phoneId);
+            for (let fieldId in fieldsIdToValidator) {
+                if (!fieldsIdToValidator[fieldId]()) {
+                    errorFields.push(fieldId);
+                }
             }
 
             return  {
                 isValid: errorFields.length === 0,
                 errorFields: errorFields
             }
+        }
+
+        /**
+         *
+         * @returns {boolean}
+         */
+        function validateFio() {
+            let fio = getFieldInputWithId(fioId).value.trim();
+            if (!fio) {
+                return false;
+            }
+
+            let words = fio.split(" ");
+            return words.length === 3;
+        }
+
+        /**
+         *
+         * @returns {boolean}
+         */
+        function validateEmail() {
+            let email = getFieldInputWithId(emailId).value.trim();
+            if (!email) {
+                return false;
+            }
+
+            let emailMatch = email.match(/^[^@\s]+@([^@\s]+)/);
+            let domain = emailMatch[1];
+
+            return allowedDomains.includes(domain);
+        }
+
+        /**
+         *
+         * @returns {boolean}
+         */
+        function validatePhone() {
+            let phone = getFieldInputWithId(phoneId).value.trim();
+            if (!phone) {
+                return false;
+            }
+
+            return true;
+            //TODO
+
         }
 
         return {
@@ -110,10 +154,17 @@ window.addEventListener('load', function () {
                 return validate();
             },
             getData: function () {
+                let data = {};
+                fillableFields.forEach(function (fieldId) {
+                    data[fieldId] = getFieldInputWithId[fieldId].value;
+                });
 
+                return data;
             },
             setData: function (data) {
-
+                fillableFields.forEach(function (fieldId) {
+                    getFieldInputWithId[fieldId].value = data[fieldId];
+                });
             }
         }
     }
