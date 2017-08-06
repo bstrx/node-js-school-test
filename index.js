@@ -55,30 +55,34 @@ window.addEventListener('load', function () {
                 });
             } else {
                 submitButton.disabled = true;
-                resultContainer.classList.remove();
+                resultContainer.classList = '';
 
                 let xhr = new XMLHttpRequest();
-                xhr.open('GET', 'responses/error.json', false); //TODO Make async, take link from action
-                xhr.send();
-                let response = JSON.parse(xhr.response);
+                xhr.open('GET', form.action, true);
+                //xhr.open('GET', ["responses/progress.json", "responses/success.json", "responses/error.json"][Math.floor(Math.random()*3)], true);
+                xhr.onload = function () {
+                    let response = JSON.parse(xhr.response);
 
-                switch (response.status) {
-                    case "success":
-                        resultContainer.innerText = "Success";
-                        resultContainer.classList.add("success");
-                        submitButton.disabled = false;
-                        break;
-                    case "error":
-                        resultContainer.innerText = response.reason;
-                        resultContainer.classList.add("error");
-                        submitButton.disabled = false;
-                        break;
-                    case "progress":
-                        resultContainer.innerText = '';
-                        resultContainer.classList.remove();
-                        setTimeout(submit, response.timeout);
-                        break;
-                }
+                    switch (response.status) {
+                        case "success":
+                            resultContainer.innerText = "Success";
+                            resultContainer.classList.add("success");
+                            submitButton.disabled = false;
+                            break;
+                        case "error":
+                            resultContainer.innerText = response.reason;
+                            resultContainer.classList.add("error");
+                            submitButton.disabled = false;
+                            break;
+                        case "progress":
+                            resultContainer.innerText = '';
+                            setTimeout(submit, response.timeout);
+                            break;
+                    }
+
+                };
+
+                xhr.send();
             }
         }
 

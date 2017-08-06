@@ -5,3 +5,7 @@ input.error {
 #resultContainer.error {
     border: 2px solid red;
 }
+
+#resultContainer.success {
+    border: 2px solid green;
+}
