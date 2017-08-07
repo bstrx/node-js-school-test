@@ -2,6 +2,10 @@ input.error {
     border: 1px solid red;
 }
 
+#resultContainer {
+    width: 300px;
+}
+
 #resultContainer.error {
     border: 2px solid red;
 }

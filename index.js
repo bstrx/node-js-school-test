@@ -1,31 +1,32 @@
 window.addEventListener('load', function () {
     /**
-     * @param mainContainerId
-     * @returns {{submit: submit, validate: validate, getData: getData, setData: setData}}
+     * @param {string} mainContainerId
+     * @returns {Object}
      * @constructor
      */
     function TestForm(mainContainerId) {
-        const allowedDomains = ['ya.ru', 'yandex.ru', 'yandex.ua', 'yandex.by', 'yandex.kz', 'yandex.com'];
         const fioId = 'fio';
         const emailId = 'email';
         const phoneId = 'phone';
-        const formSelector = '#' + mainContainerId + ' #myForm';
-
         const fillableFields = [fioId, emailId, phoneId];
-        const fieldsIdToValidator = {
-            [fioId]: validateFio,
-            [emailId]: validateEmail,
-            [phoneId]: validatePhone
-        };
 
+        const formSelector = '#' + mainContainerId + ' #myForm';
         const form = document.querySelector(formSelector);
         const resultContainer = document.querySelector('#' + mainContainerId + ' #resultContainer');
         const submitButton = getFieldInputWithId('submitButton');
 
+        /**
+         * Whitelist of domains
+         * @type {string[]}
+         */
+        const allowedDomains = ['ya.ru', 'yandex.ru', 'yandex.ua', 'yandex.by', 'yandex.kz', 'yandex.com'];
+
         form.addEventListener("submit", submitEventHandler);
 
         /**
-         * @param e
+         * Wrapper for submit to prevent default event and use submit separately from form event
+         *
+         * @param {Object} e
          */
         function submitEventHandler(e) {
             e.preventDefault();
@@ -33,7 +34,9 @@ window.addEventListener('load', function () {
         }
 
         /**
-         * @param fieldId
+         * Returns input with a specified id
+         *
+         * @param {string} fieldId
          * @returns {Element}
          */
         function getFieldInputWithId(fieldId) {
@@ -41,56 +44,84 @@ window.addEventListener('load', function () {
         }
 
         /**
-         *
+         * Validates and submits the form
          */
         function submit() {
+            let validationResult = validateAndShowErrors();
+
+            if (validationResult.isValid) {
+                submitButton.disabled = true;
+                resultContainer.classList = '';
+
+                let xhr = new XMLHttpRequest();
+                xhr.open('GET', form.action, true);
+                //Can be used for testing random responses
+                //xhr.open('GET', ["responses/progress.json", "responses/success.json", "responses/error.json"][Math.floor(Math.random()*3)], true);
+                xhr.onload = handleResponse;
+                xhr.send();
+            }
+        }
+
+        /**
+         * Handles submit response from server
+         */
+        function handleResponse() {
+            let response = JSON.parse(this.response);
+
+            switch (response.status) {
+                case "success":
+                    resultContainer.innerText = "Success";
+                    resultContainer.classList.add("success");
+                    submitButton.disabled = false;
+                    break;
+                case "error":
+                    resultContainer.innerText = response.reason;
+                    resultContainer.classList.add("error");
+                    submitButton.disabled = false;
+                    break;
+                case "progress":
+                    resultContainer.innerText = '';
+                    setTimeout(submit, response.timeout);
+                    break;
+                default:
+                    submitButton.disabled = false;
+                    console.error('Something went wrong');
+            }
+        }
+
+        /**
+         * Calls validation and shows errors for fields. Not a fan of this function - it has multiple responsibilities.
+         *
+         * @returns {Object}
+         */
+        function validateAndShowErrors() {
             fillableFields.forEach(function (fieldId) {
                 getFieldInputWithId(fieldId).classList.remove("error");
             });
+
             let validationResult = validate();
 
             if (!validationResult.isValid) {
                 validationResult.errorFields.forEach(function (fieldId) {
                     getFieldInputWithId(fieldId).classList.add("error");
                 });
-            } else {
-                submitButton.disabled = true;
-                resultContainer.classList = '';
-
-                let xhr = new XMLHttpRequest();
-                xhr.open('GET', form.action, true);
-                //xhr.open('GET', ["responses/progress.json", "responses/success.json", "responses/error.json"][Math.floor(Math.random()*3)], true);
-                xhr.onload = function () {
-                    let response = JSON.parse(xhr.response);
-
-                    switch (response.status) {
-                        case "success":
-                            resultContainer.innerText = "Success";
-                            resultContainer.classList.add("success");
-                            submitButton.disabled = false;
-                            break;
-                        case "error":
-                            resultContainer.innerText = response.reason;
-                            resultContainer.classList.add("error");
-                            submitButton.disabled = false;
-                            break;
-                        case "progress":
-                            resultContainer.innerText = '';
-                            setTimeout(submit, response.timeout);
-                            break;
-                    }
-
-                };
-
-                xhr.send();
             }
+
+            return validationResult;
         }
 
         /**
+         * Validates fields of the form
          *
-         * @returns {{isValid: boolean, errorFields: Array}}
+         * @returns {Object}
          */
         function validate() {
+            const fieldsIdToValidator = {
+                [fioId]: validateFio,
+                [emailId]: validateEmail,
+                [phoneId]: validatePhone
+            };
+
             let errorFields = [];
 
             for (let fieldId in fieldsIdToValidator) {
@@ -106,7 +137,6 @@ window.addEventListener('load', function () {
         }
 
         /**
-         *
          * @returns {boolean}
          */
         function validateFio() {
@@ -120,7 +150,6 @@ window.addEventListener('load', function () {
         }
 
         /**
-         *
          * @returns {boolean}
          */
         function validateEmail() {
@@ -132,11 +161,11 @@ window.addEventListener('load', function () {
             let emailMatch = email.match(/^[^@\s]+@([^@\s]+)/);
             let domain = emailMatch[1];
 
+            //domain must be in the whitelist
             return allowedDomains.includes(domain);
         }
 
         /**
-         *
          * @returns {boolean}
          */
         function validatePhone() {
@@ -149,30 +178,51 @@ window.addEventListener('load', function () {
                 return false;
             }
 
-            let numbers = phone.replace(/\D+/g, '').split('');
+            let digits = phone.replace(/\D+/g, '').split('');
 
-            return numbers.reduce((a, b) => parseInt(a) + parseInt(b), 0) <= 30;
-
+            //digits sum must not exceed given number
+            return digits.reduce((a, b) => parseInt(a) + parseInt(b), 0) <= 30;
         }
 
         return {
-            submit: function () {
+            /**
+             * Submits the form
+             */
+            submit() {
                 submit();
             },
-            validate: function () {
-                return validate();
+
+            /**
+             * Validates the form
+             *
+             * @returns {Object}
+             */
+            validate() {
+                return validateAndShowErrors();
             },
-            getData: function () {
+
+            /**
+             * Returns object with form fields names/values
+             *
+             * @returns {Object}
+             */
+            getData() {
                 let data = {};
                 fillableFields.forEach(function (fieldId) {
-                    data[fieldId] = getFieldInputWithId[fieldId].value;
+                    data[fieldId] = getFieldInputWithId(fieldId).value;
                 });
 
                 return data;
             },
-            setData: function (data) {
+
+            /**
+             * Sets fillable form fields, other fields are ignored
+             *
+             * @param {Object} data
+             */
+            setData(data) {
                 fillableFields.forEach(function (fieldId) {
-                    getFieldInputWithId[fieldId].value = data[fieldId];
+                    getFieldInputWithId(fieldId).value = data[fieldId];
                 });
             }
         }
@@ -180,4 +230,3 @@ window.addEventListener('load', function () {
 
     window.MyForm = new TestForm('test-app');
 });
-
